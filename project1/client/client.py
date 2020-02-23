@@ -2,6 +2,7 @@
 import socket
 import errno
 import os
+import sys
 
 class Client:
     def __init__(self, address='127.0.0.1', port=5000):
@@ -11,19 +12,33 @@ class Client:
         self.commands = {
             'connect': {
                 'func': self.connect,
-                'argc': 2 },
+                'argc': 2
+            },
             'list': {
                 'func': self.list,
-                'argc': 0 },
+                'argc': 0
+            },
             'retrieve': {
                 'func': self.retrieve,
-                'argc': 1 },
+                'argc': 1
+            },
             'store': {
                 'func': self.store,
-                'argc': 1 },
+                'argc': 1
+            },
             'quit': {
                 'func': self.quit,
-                'argc': 0 }
+                'argc': 0
+            },
+            'help': {
+                'func': self.help,
+                'argc': 0
+            },
+            'exit': {
+                'func': self.exit,
+                'argc': 0
+            }
+
         }
 
     def __parse_input(self, user_input):
@@ -34,6 +49,10 @@ class Client:
             return data[0], None
 
     def connect(self, args):
+        '''
+        > connect [ip address] [port]
+        Connects to a ftp server:
+        '''
         self.address = args[0]
         if args[1].isdigit():
             port = int(args[1])
@@ -46,11 +65,22 @@ class Client:
             print("Failed to connect:", os.strerror(error.errno))
 
     def list(self, args):
+        '''
+        > list
+        Requests a list of files on the server.
+        '''
         self.__send("list")
-        data = self.socket.recv(1024)
-        print(data.decode())
+        try:
+            data = self.socket.recv(1024)
+            print(data.decode())
+        except socket.error as error:
+            print("Failed to recv:", os.strerror(error.errno))
 
     def retrieve(self, args):
+        '''
+        > retrieve [file name]
+        Requests a file from the server. Saves to current directory.
+        '''
         filename = args[0]
         self.__send("retrieve {f}".format(f=filename))
         file_size = int(self.socket.recv(32))
@@ -69,6 +99,10 @@ class Client:
         print("Wrote to {s} to {f}".format(s=file_size, f=filename))
 
     def store(self, args):
+        '''
+        > store [file name]
+        Copies a file to the server.
+        '''
         filename = args[0]
         if not os.path.isfile(filename):
             print("File does not exist")
@@ -81,28 +115,49 @@ class Client:
         f.close()
 
     def quit(self, args):
-        print('Connection ended')
-        self.socket.shutdown(socket.SHUT_RDWR)
-        self.socket.close()
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        '''
+        > quit
+        Closes the connection to the server
+        '''
+        try:
+            self.socket.shutdown(socket.SHUT_RDWR)
+            self.socket.close()
+            print('Connection ended')
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        except socket.error as error:
+            print("Failed to quit:", os.strerror(error.errno))
+
+    def help(self, args):
+        '''
+        > help
+        Lists commands description and usage.
+        '''
+        for k,v in self.commands.items():
+            print(v['func'].__doc__)
+
+    def exit(self, args):
+        '''
+        > exit
+        Exits the current program.
+        '''
+        sys.exit(0)
 
     def __send(self, data):
-        self.socket.sendall(data.encode('utf-8'))
+        try:
+            self.socket.sendall(data.encode('utf-8'))
+        except socket.error as error:
+            print("Failed to send:", os.strerror(error.errno))
 
     def __validate(self, command, raw_args):
-        print("command: {} args: {}".format(command, raw_args))
-        #invalid command
         if command not in self.commands:
-            print("{} not in commands".format(command))
             return False, None
-        #valid command but no args
+        argc = 0
+        args = None
         if not raw_args:
-            print("No args, but valid command")
-            return True, None
-        #valid command with args
-        args = raw_args.split(' ')
-        argc = len(args)
-        #valid command with insufficient args
+            argc = 0
+        else:
+            args = raw_args.split(' ')
+            argc = len(args)
         if argc < self.commands[command]['argc']:
             print("Valid command but insufficient args")
             return False, None
@@ -116,14 +171,12 @@ class Client:
             except EOFError:
                 return
 
-            if user_input == 'exit':
-                return
-
             command, args = self.__parse_input(user_input)
-            #if command in self.commands:
             is_valid, args = self.__validate(command, args)
             if is_valid:
                 self.commands[command]['func'](args)
+            elif not user_input:
+                pass
             else:
                 print("Invalid command:", command)
 

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import os
 import socket
+import signal
+from sys import exit
 from threading import Thread
 
 class Server:
@@ -9,11 +11,18 @@ class Server:
         self.port = port
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.bind((self.address, self.port))
+        signal.signal(signal.SIGINT, self.__sig_handler)
         self.commands = {
             'list': self.__list,
             'retrieve': self.__retrieve,
             'store': self.__store,
         }
+
+    def __sig_handler(self, signum, frame):
+        #try to somewhat gracefully end the process
+        self.socket.shutdown(socket.SHUT_RDWR)
+        self.socket.close()
+        exit(1)
 
     def __send(self, conn, data):
         conn.sendall(data.encode('utf-8'))
@@ -62,12 +71,10 @@ class Server:
         while(True):
             data = conn.recv(64)
             if not data:
-                print('no data, closing')
+                print('Closing connection with {}'.format(conn.getpeername()))
                 break
             else:
                 command, args = self.__parse_data(data)
-                print("command:", command)
-                print("args:", args)
                 if command in self.commands:
                     self.commands[command](conn, args)
         self.__end_connection(conn)
