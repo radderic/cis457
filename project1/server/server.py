@@ -19,7 +19,7 @@ class Server:
         }
 
     def __sig_handler(self, signum, frame):
-        #try to somewhat gracefully end the process
+        #try to somewhat gracefully end the process to avoid OS bind issues
         self.socket.shutdown(socket.SHUT_RDWR)
         self.socket.close()
         exit(1)
@@ -41,7 +41,9 @@ class Server:
             data = f.read()
             size = len(data)
             self.__send(conn, str(size))
-            conn.sendall(data)
+            response = conn.recv(16).decode()
+            if(response == 'ready'):
+                conn.sendall(data)
         else:
             self.__send(conn, str(size))
 

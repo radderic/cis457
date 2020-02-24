@@ -87,16 +87,16 @@ class Client:
         if(file_size == 0):
             print("File does not exist")
             return
+        self.__send("ready")
         bytes_recv = 0
         f = open(filename, 'wb')
         print("file size:", file_size)
         while(bytes_recv < file_size):
             data = self.socket.recv(1024)
             bytes_recv += len(data)
-            print("got:", bytes_recv)
             f.write(data)
         f.close()
-        print("Wrote to {s} to {f}".format(s=file_size, f=filename))
+        print("Wrote {s} bytes to {f}".format(s=file_size, f=filename))
 
     def store(self, args):
         '''
