@@ -55,10 +55,17 @@ class Client:
         '''
         self.address = args[0]
         if args[1].isdigit():
-            port = int(args[1])
+            self.port = int(args[1])
         else:
             print("Invalid port:", args[1])
             return
+        try:
+            self.socket.shutdown(socket.SHUT_RDWR)
+            self.socket.close()
+        except socket.error as error:
+            pass
+        #create a new socket
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             self.socket.connect((self.address, self.port))
         except socket.error as error:
@@ -150,6 +157,7 @@ class Client:
 
     def __validate(self, command, raw_args):
         if command not in self.commands:
+            print("Invalid command:", command)
             return False, None
         argc = 0
         args = None
@@ -177,8 +185,6 @@ class Client:
                 self.commands[command]['func'](args)
             elif not user_input:
                 pass
-            else:
-                print("Invalid command:", command)
 
 c = Client()
 c.run()

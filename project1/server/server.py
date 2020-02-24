@@ -9,9 +9,13 @@ class Server:
     def __init__(self, address='127.0.0.1', port=5000):
         self.address = address
         self.port = port
+        self.max_backlog = 2
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.socket.bind((self.address, self.port))
         signal.signal(signal.SIGINT, self.__sig_handler)
+        self.count = 0
+        self.run_threads = True
         self.commands = {
             'list': self.__list,
             'retrieve': self.__retrieve,
@@ -20,6 +24,9 @@ class Server:
 
     def __sig_handler(self, signum, frame):
         #try to somewhat gracefully end the process to avoid OS bind issues
+        self.run_threads = False
+        while(self.count > 0):
+            pass
         self.socket.shutdown(socket.SHUT_RDWR)
         self.socket.close()
         exit(1)
@@ -70,8 +77,13 @@ class Server:
             return data[0], None
 
     def __client_connection(self, conn, name):
-        while(True):
-            data = conn.recv(64)
+        conn.settimeout(2)
+        data = None
+        while(self.run_threads):
+            try:
+                data = conn.recv(64)
+            except socket.timeout:
+                continue
             if not data:
                 print('Closing connection with {}'.format(conn.getpeername()))
                 break
@@ -79,15 +91,18 @@ class Server:
                 command, args = self.__parse_data(data)
                 if command in self.commands:
                     self.commands[command](conn, args)
+        self.count -= 1
+        print("Connections: {}".format(self.count))
         self.__end_connection(conn)
 
     def listen(self):
-        self.socket.listen(4)
+        self.socket.listen(self.max_backlog)
         while(True):
             conn, name = self.socket.accept()
+            self.count += 1
             print("Connection from {}".format(name))
+            print("Connections: {}".format(self.count))
             t = Thread(target=self.__client_connection, args=(conn,name))
             t.start()
-
 s = Server()
 s.listen()
