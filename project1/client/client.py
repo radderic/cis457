@@ -50,7 +50,7 @@ class Client:
 
     def connect(self, args):
         '''
-        > connect [ip address] [port]
+        connect [destination] [port]
         Connects to a ftp server:
         '''
         self.address = args[0]
@@ -68,12 +68,13 @@ class Client:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             self.socket.connect((self.address, self.port))
+            print('Connection successful: connected with {}'.format(self.socket.getpeername()))
         except socket.error as error:
             print("Failed to connect:", os.strerror(error.errno))
 
     def list(self, args):
         '''
-        > list
+        list
         Requests a list of files on the server.
         '''
         self.__send("list")
@@ -85,7 +86,7 @@ class Client:
 
     def retrieve(self, args):
         '''
-        > retrieve [file name]
+        retrieve [filename]
         Requests a file from the server. Saves to current directory.
         '''
         filename = args[0]
@@ -107,7 +108,7 @@ class Client:
 
     def store(self, args):
         '''
-        > store [file name]
+        store [filename]
         Copies a file to the server.
         '''
         filename = args[0]
@@ -123,28 +124,28 @@ class Client:
 
     def quit(self, args):
         '''
-        > quit
+        quit
         Closes the connection to the server
         '''
         try:
+            print('Connection ended with: {}'.format(self.socket.getpeername()))
             self.socket.shutdown(socket.SHUT_RDWR)
             self.socket.close()
-            print('Connection ended')
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         except socket.error as error:
             print("Failed to quit:", os.strerror(error.errno))
 
     def help(self, args):
         '''
-        > help
+        help
         Lists commands description and usage.
         '''
         for k,v in self.commands.items():
-            print(v['func'].__doc__)
+            print(v['func'].__doc__.strip()+"\n")
 
     def exit(self, args):
         '''
-        > exit
+        exit
         Exits the current program.
         '''
         sys.exit(0)
@@ -167,11 +168,13 @@ class Client:
             args = raw_args.split(' ')
             argc = len(args)
         if argc < self.commands[command]['argc']:
-            print("Valid command but insufficient args")
+            print("Incorrect usage")
+            print(self.commands[command]['func'].__doc__.strip())
             return False, None
         return True, args
 
     def run(self):
+        self.help('')
         user_input = ''
         while(True):
             try:
@@ -186,5 +189,6 @@ class Client:
             elif not user_input:
                 pass
 
-c = Client()
-c.run()
+if __name__ == "__main__":
+    c = Client()
+    c.run()

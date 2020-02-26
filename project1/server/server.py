@@ -25,6 +25,7 @@ class Server:
     def __sig_handler(self, signum, frame):
         #try to somewhat gracefully end the process to avoid OS bind issues
         self.run_threads = False
+        print("Waiting for threads to finish")
         while(self.count > 0):
             pass
         self.socket.shutdown(socket.SHUT_RDWR)
@@ -35,12 +36,14 @@ class Server:
         conn.sendall(data.encode('utf-8'))
 
     def __list(self, conn, args):
+        print("A list request by {}".format(conn.getpeername()))
         cur_dir = os.listdir('.')
         dir_str = "\n".join(cur_dir)+"\n"
         self.__send(conn, dir_str)
 
     def __retrieve(self, conn, args):
         filename = args[0]
+        print("A retrieve request by {} for file {}".format(conn.getpeername(), filename))
         size = 0
         data = None
         if os.path.isfile(filename):
@@ -57,6 +60,7 @@ class Server:
     def __store(self, conn, args):
         filename = args[0]
         size = int(args[1])
+        print("A store request by {} for file {} ({} bytes)".format(conn.getpeername(), filename, size))
         f = open(filename, 'wb')
         bytes_recv = 0
         while(bytes_recv < size):
@@ -66,6 +70,7 @@ class Server:
         f.close()
 
     def __end_connection(self, conn):
+        print("ending connection with {}".format(conn.getpeername()))
         conn.shutdown(socket.SHUT_RDWR)
         conn.close()
 
@@ -96,6 +101,7 @@ class Server:
         self.__end_connection(conn)
 
     def listen(self):
+        print("Server running as: {}".format(self.socket.getsockname()))
         self.socket.listen(self.max_backlog)
         while(True):
             conn, name = self.socket.accept()
@@ -104,5 +110,8 @@ class Server:
             print("Connections: {}".format(self.count))
             t = Thread(target=self.__client_connection, args=(conn,name))
             t.start()
-s = Server()
-s.listen()
+
+
+if __name__ == "__main__":
+    s = Server()
+    s.listen()
